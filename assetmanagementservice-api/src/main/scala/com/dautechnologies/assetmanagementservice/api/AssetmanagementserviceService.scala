@@ -2,12 +2,13 @@ package com.dautechnologies.assetmanagementservice.api
 
 import akka.{Done, NotUsed}
 import com.lightbend.lagom.scaladsl.api.broker.Topic
+import com.lightbend.lagom.scaladsl.api.transport.Method._
 import com.lightbend.lagom.scaladsl.api.broker.kafka.{KafkaProperties, PartitionKeyStrategy}
 import com.lightbend.lagom.scaladsl.api.{Descriptor, Service, ServiceCall}
 import play.api.libs.json.{Format, Json}
 
-object AssetmanagementserviceService  {
-  val TOPIC_NAME = "greetings"
+object AssetmanagementserviceService {
+  val TOPIC_NAME = "AssetEvent"
 }
 
 /**
@@ -29,11 +30,15 @@ trait AssetmanagementserviceService extends Service {
     */
   def useGreeting(id: String): ServiceCall[GreetingMessage, Done]
 
+  def createAsset():ServiceCall[Asset,Done]
+
 
   /**
     * This gets published to Kafka.
     */
-  def greetingsTopic(): Topic[GreetingMessageChanged]
+//  def greetingsTopic(): Topic[GreetingMessageChanged]
+
+  def assetTopic(): Topic[AssetChanged]
 
   override final def descriptor: Descriptor = {
     import Service._
@@ -41,23 +46,44 @@ trait AssetmanagementserviceService extends Service {
     named("assetmanagementservice")
       .withCalls(
         pathCall("/api/hello/:id", hello _),
-        pathCall("/api/hello/:id", useGreeting _)
+        pathCall("/api/hello/:id", useGreeting _),
+
+        restCall(POST,"assets/create",createAsset _)
       )
       .withTopics(
-        topic(AssetmanagementserviceService.TOPIC_NAME, greetingsTopic _)
+        topic(AssetmanagementserviceService.TOPIC_NAME, assetTopic() _)
           // Kafka partitions messages, messages within the same partition will
           // be delivered in order, to ensure that all messages for the same user
           // go to the same partition (and hence are delivered in order with respect
           // to that user), we configure a partition key strategy that extracts the
           // name as the partition key.
           .addProperty(
-            KafkaProperties.partitionKeyStrategy,
-            PartitionKeyStrategy[GreetingMessageChanged](_.name)
-          )
+          KafkaProperties.partitionKeyStrategy,
+          PartitionKeyStrategy[AssetChanged](_.id)
+        )
       )
       .withAutoAcl(true)
     // @formatter:on
   }
+}
+
+case class Asset(name: String, description: String, traceables: Map[String, String])
+
+object Asset {
+  implicit val format: Format[Asset] = Json.format[Asset]
+}
+
+/**
+  * Message(Event) used by topic stream
+  * @param id
+  * @param name
+  * @param description
+  * @param traceables
+  */
+case class AssetChanged(id:String,name:String,description:String, traceables:Map[String,String])
+
+object AssetChanged{
+  implicit val format:Format[AssetChanged] = Json.format[AssetChanged]
 }
 
 /**
@@ -73,7 +99,6 @@ object GreetingMessage {
     */
   implicit val format: Format[GreetingMessage] = Json.format[GreetingMessage]
 }
-
 
 
 /**

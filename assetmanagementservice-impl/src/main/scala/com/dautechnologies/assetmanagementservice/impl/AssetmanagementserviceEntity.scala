@@ -6,6 +6,8 @@ import akka.Done
 import com.lightbend.lagom.scaladsl.persistence.{AggregateEvent, AggregateEventTag, PersistentEntity}
 import com.lightbend.lagom.scaladsl.persistence.PersistentEntity.ReplyType
 import com.lightbend.lagom.scaladsl.playjson.{JsonSerializer, JsonSerializerRegistry}
+import com.typesafe.config.ConfigFactory
+import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json.{Format, Json}
 
 import scala.collection.immutable.Seq
@@ -45,7 +47,9 @@ class AssetmanagementserviceEntity extends PersistentEntity {
     * is a function of the current state to a set of actions.
     */
   override def behavior: Behavior = {
-    case AssetmanagementserviceState(message, _) => Actions().onCommand[UseGreetingMessage, Done] {
+    case AssetmanagementserviceState(message, _) => Actions()
+
+      .onCommand[UseGreetingMessage, Done] {
 
       // Command handler for the UseGreetingMessage command
       case (UseGreetingMessage(newMessage), ctx, state) =>
@@ -57,8 +61,8 @@ class AssetmanagementserviceEntity extends PersistentEntity {
           // Then once the event is successfully persisted, we respond with done.
           ctx.reply(Done)
         }
-
-    }.onReadOnlyCommand[Hello, String] {
+    }
+      .onReadOnlyCommand[Hello, String] {
 
       // Command handler for the Hello command
       case (Hello(name), ctx, state) =>
@@ -123,10 +127,25 @@ object GreetingMessageChanged {
   implicit val format: Format[GreetingMessageChanged] = Json.format
 }
 
+case class AssetChanged(id: String, name: String, description: String, traceables: Map[String, String])
+
+object AssetChanged {
+  implicit val format: Format[AssetChanged] = Json.format[AssetChanged]
+}
+
+case class BatchImpl (id: String, name: String, description: String, traceables: Map[String, String])
+
+object BatchImpl{
+  implicit val format:Format[BatchImpl] = Json.format[BatchImpl]
+}
+
 /**
   * This interface defines all the commands that the AssetmanagementserviceEntity supports.
   */
 sealed trait AssetmanagementserviceCommand[R] extends ReplyType[R]
+
+
+case class PersistAssetCommand()
 
 /**
   * A command to switch the greeting message.
@@ -186,6 +205,12 @@ object AssetmanagementserviceSerializerRegistry extends JsonSerializerRegistry {
     JsonSerializer[UseGreetingMessage],
     JsonSerializer[Hello],
     JsonSerializer[GreetingMessageChanged],
-    JsonSerializer[AssetmanagementserviceState]
+    JsonSerializer[AssetmanagementserviceState],
+    JsonSerializer[AssetChanged]
   )
+}
+
+trait AssetConfig {
+  lazy val log: Logger = LoggerFactory.getLogger(classOf[AssetmanagementserviceServiceImpl])
+  lazy val config = ConfigFactory.load()
 }
