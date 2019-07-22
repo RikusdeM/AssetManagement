@@ -1,0 +1,113 @@
+package com.dautechnology.assetmanagementservice.impl
+import java.io.File
+import java.math.BigInteger
+
+import com.github.tototoshi.csv._
+
+import org.scalatest.{ Matchers, WordSpec }
+import scodec._
+import scodec.bits._
+import scodec.codecs._
+
+class R2D2Spec extends WordSpec with Matchers {
+  implicit object MyFormat extends DefaultCSVFormat {
+    override val delimiter = ';'
+  }
+  "R2D2" should {
+    "return events from .csv file" in {
+
+      val reader: CSVReader = CSVReader.open(new File("src/test/resources/r2d22.csv"))
+      val events: List[Map[String, String]] = reader.allWithHeaders()
+      val data: Seq[String] = events.flatMap(e => e.get("Data"))
+      val header: Seq[(String, String, String)] = events.map(e => (
+        e.getOrElse("Latitude (Computed location)", ""),
+        e.getOrElse("Longitude (Computed location)", ""),
+        e.getOrElse("Timestamp", "")))
+
+      val decodedMessages: Seq[SensorReading] = data.flatMap { d =>
+        val bs: Array[Byte] = new BigInteger(d, 16).toByteArray
+        val bits: BitVector = if (BitVector(bs).sizeLessThan(96)) BitVector(bs).padLeft(96) else BitVector(bs).slice(0, 96)
+        val decodedMessage = Codec[Message].decode(bits)
+        for {
+          d <- decodedMessage.toOption
+          s <- d.value.sensorMessage
+        } yield SensorReading(s)
+      }
+
+      val interim: Seq[Seq[String]] = header.zip(decodedMessages).map(d => (d._1._3, d._1._1, d._1._2, d._2.lat.toString, d._2.lon.toString, d._2.temperature.toString, d._2.voltage.toString).productIterator.toList.asInstanceOf[List[String]])
+
+      val f = new File("src/test/resources/out.csv")
+
+      val writer = CSVWriter.open(f)
+      writer.writeAll(interim)
+      writer.close()
+      reader.close()
+    }
+  }
+}
+
+object MessageType extends Enumeration {
+  type MessageType = Value
+  val SENSOR_MESSAGE: wellthy.MessageType.Value = Value(0)
+  val STARTUP_MESSAGE: wellthy.MessageType.Value = Value(1)
+}
+import MessageType._
+
+case class SensorMessage(elat: Int, elon: Int, volt: Int, temp: Int)
+
+object SensorMessage {
+  implicit val codec: Codec[SensorMessage] = {
+    ("elat" | int32) :: ("elon" | int32) :: ("volt" | int16) :: ("temp" | int16)
+  }.as[SensorMessage]
+}
+
+case class SensorReading(lat: Double, lon: Double, voltage: Double, temperature: Double)
+
+object SensorReading {
+  def apply(message: SensorMessage) = new SensorReading((message.elat / 100000d) - 90, (message.elon / 100000d) - 180, message.volt / 1000d, (message.temp - 1000) / 10d)
+
+}
+
+case class StartupMessage(major: Int, minor: Int, build: Int)
+
+object StartupMessage {
+  implicit val codec: Codec[StartupMessage] = {
+    println("\n\n\n Hiya")
+    ignore(72) :: ("major" | uint8) :: ("minor" | uint8) :: ("build" | uint8)
+  }.as[StartupMessage]
+}
+
+class MessageTypeCodec() extends Codec[MessageType] {
+  override def sizeBound: SizeBound = SizeBound.atLeast(72)
+  override def decode(buffer: BitVector): Attempt[DecodeResult[wellthy.MessageType.Value]] =
+    buffer.acquire(56) match {
+      case Left(e) => Attempt.failure(Err.insufficientBits(56, buffer.size))
+      case Right(b) =>
+        Attempt.successful(
+          DecodeResult(
+            if (b.slice(0, 71).equals(BitVector(hex"ffffffffffffffffff"))) STARTUP_MESSAGE else SENSOR_MESSAGE,
+            buffer))
+    }
+  override def encode(a: MessageType): Attempt[BitVector] = Attempt.successful(BitVector.empty)
+
+}
+
+object MessageImplicits {
+  implicit val messageTypeCodec: MessageTypeCodec = new MessageTypeCodec()
+}
+import MessageImplicits._
+
+case class Message(messageType: MessageType, sensorMessage: Option[SensorMessage],
+  startupMessage: Option[StartupMessage])
+
+object Message {
+  implicit val codec: Codec[Message] = {
+    (("messageType" | Codec[MessageType]) >>:~ { messageType =>
+      ("sensorMessage" | conditional(
+        messageType == SENSOR_MESSAGE, Codec[SensorMessage])) ::
+        ("startupMessage" | conditional(
+          messageType == STARTUP_MESSAGE, Codec[StartupMessage]))
+    }).as[Message]
+  }
+}
+
