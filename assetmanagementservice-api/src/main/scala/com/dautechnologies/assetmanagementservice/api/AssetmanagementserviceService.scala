@@ -67,11 +67,16 @@ trait AssetmanagementserviceService extends Service {
   }
 }
 
-case class Asset(name: String, description: String, traceables: Map[String, String])
+trait command
+trait event
+
+case class Asset(name: String, description: String, traceables: Map[String, String]) extends command
 
 object Asset {
   implicit val format: Format[Asset] = Json.format[Asset]
 }
+
+
 
 /**
   * Message(Event) used by topic stream
@@ -80,7 +85,7 @@ object Asset {
   * @param description
   * @param traceables
   */
-case class AssetChanged(id:String,name:String,description:String, traceables:Map[String,String])
+case class AssetChanged(id:String,name:String,description:String, traceables:Map[String,String]) extends event
 
 object AssetChanged{
   implicit val format:Format[AssetChanged] = Json.format[AssetChanged]

@@ -9,6 +9,7 @@ import com.lightbend.lagom.scaladsl.playjson.{JsonSerializer, JsonSerializerRegi
 import com.typesafe.config.ConfigFactory
 import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json.{Format, Json}
+import AssetmanagementserviceServiceImpl.createAssetId
 
 import scala.collection.immutable.Seq
 
@@ -40,7 +41,14 @@ class AssetmanagementserviceEntity extends PersistentEntity {
   /**
     * The initial state. This is used if there is no snapshotted state to be found.
     */
-  override def initialState: AssetmanagementserviceState = AssetmanagementserviceState("Hello", LocalDateTime.now.toString)
+  //  override def initialState: AssetmanagementserviceState = AssetmanagementserviceState("Hello", LocalDateTime.now.toString)
+
+  override def initialState: AssetmanagementserviceState = AssetmanagementserviceState(new AssetImpl(
+    createAssetId("testAsset"),
+    "testAsset",
+    "this is a test Asset",
+    Map("sensor_1" -> "0")),
+    LocalDateTime.now.toString)
 
   /**
     * An entity can define different behaviours for different states, so the behaviour
@@ -85,7 +93,8 @@ class AssetmanagementserviceEntity extends PersistentEntity {
 /**
   * The current state held by the persistent entity.
   */
-case class AssetmanagementserviceState(message: String, timestamp: String)
+//case class AssetmanagementserviceState(message: String, timestamp: String)
+case class AssetmanagementserviceState(assetImpl: AssetImpl, timestamp: String)
 
 object AssetmanagementserviceState {
   /**
@@ -127,16 +136,16 @@ object GreetingMessageChanged {
   implicit val format: Format[GreetingMessageChanged] = Json.format
 }
 
-case class AssetChanged(id: String, name: String, description: String, traceables: Map[String, String])
+case class AssetChanged(id: String, name: String, description: String, traceables: Map[String, String]) extends AssetmanagementserviceEvent
 
 object AssetChanged {
   implicit val format: Format[AssetChanged] = Json.format[AssetChanged]
 }
 
-case class BatchImpl (id: String, name: String, description: String, traceables: Map[String, String])
+case class AssetImpl(id: String, name: String, description: String, traceables: Map[String, String])
 
-object BatchImpl{
-  implicit val format:Format[BatchImpl] = Json.format[BatchImpl]
+object AssetImpl {
+  implicit val format: Format[AssetImpl] = Json.format[AssetImpl]
 }
 
 /**
@@ -145,7 +154,11 @@ object BatchImpl{
 sealed trait AssetmanagementserviceCommand[R] extends ReplyType[R]
 
 
-case class PersistAssetCommand()
+case class UseAsset(name: String, description: String, traceables: Map[String, String]) extends AssetmanagementserviceCommand[Done]
+
+object UseAsset {
+  implicit val format: Format[UseAsset] = Json.format
+}
 
 /**
   * A command to switch the greeting message.
