@@ -2,12 +2,12 @@ package com.dautechnologies.assetmanagementservice.impl
 
 import java.util.UUID
 
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import com.dautechnologies.assetmanagementservice.api
-import com.dautechnologies.assetmanagementservice.api.{Asset, AssetmanagementserviceService}
+import com.dautechnologies.assetmanagementservice.api.{Asset, AssetEntityStateResponse, AssetmanagementserviceService}
 import com.lightbend.lagom.scaladsl.api.ServiceCall
 import com.lightbend.lagom.scaladsl.api.broker._
 import com.lightbend.lagom.scaladsl.broker.TopicProducer
@@ -90,5 +90,10 @@ class AssetmanagementserviceServiceImpl(system: ActorSystem,
     assetEvent.event match {
       case ac: AssetChanged => api.AssetChanged(ac.assetImpl.id, ac.assetImpl.name, ac.assetImpl.description, ac.assetImpl.traceables)
     }
+  }
+
+  override def queryAssetEntityState(assetId: String): ServiceCall[NotUsed, AssetEntityStateResponse] = ServiceCall { _ =>
+    val ref = persistentEntityRegistry.refFor[AssetmanagementserviceEntity](assetId)
+    ref.ask(new GetCurrentAssetCommand(assetId)).map{ cmr:CurrentAssetReply => new AssetEntityStateResponse( new Asset(cmr.assetImpl.name,cmr.assetImpl.description,cmr.assetImpl.traceables))}
   }
 }

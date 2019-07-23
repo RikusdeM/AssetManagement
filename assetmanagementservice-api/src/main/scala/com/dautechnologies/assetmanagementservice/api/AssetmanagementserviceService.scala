@@ -32,6 +32,8 @@ trait AssetmanagementserviceService extends Service {
 
   def createAsset(): ServiceCall[Asset, Done]
 
+  def queryAssetEntityState(assetId: String): ServiceCall[NotUsed, AssetEntityStateResponse]
+
 
   /**
     * This gets published to Kafka.
@@ -48,7 +50,8 @@ trait AssetmanagementserviceService extends Service {
         pathCall("/api/hello/:id", hello _),
         pathCall("/api/hello/:id", useGreeting _),
 
-        restCall(POST, "/assets/create", createAsset _)
+        restCall(POST, "/assets/create", createAsset _),
+        restCall(GET, "/assets/get/:id", queryAssetEntityState _)
       )
       .withTopics(
         topic(AssetmanagementserviceService.TOPIC_NAME, assetTopic _)
@@ -75,6 +78,12 @@ case class Asset(name: String, description: String, traceables: Map[String, Stri
 
 object Asset {
   implicit val format: Format[Asset] = Json.format[Asset]
+}
+
+case class AssetEntityStateResponse(asset:Asset) extends command
+
+object AssetEntityStateResponse {
+  implicit val format: Format[AssetEntityStateResponse] = Json.format[AssetEntityStateResponse]
 }
 
 

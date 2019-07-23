@@ -93,8 +93,16 @@ class AssetmanagementserviceEntity extends PersistentEntity with AssetConfig {
         // Reply with a message built from the current message, and the name of
         // the person we're meant to say hello to.
         ctx.reply(s"$message, $name!")
+    }
 
-    }.onEvent {
+      .onReadOnlyCommand[GetCurrentAssetCommand, CurrentAssetReply] {
+      // Command handler for the Hello command
+      case (_:GetCurrentAssetCommand, ctx, state) =>
+        // Reply with a asset from the current state
+        ctx.reply(CurrentAssetReply(state.assetImpl))
+    }
+
+      .onEvent {
 
       // Event handler for the GreetingMessageChanged event
       case (AssetChanged(assetImpl), state) =>
@@ -176,6 +184,19 @@ object UseAsset {
   implicit val format: Format[UseAsset] = Json.format
 }
 
+case class GetCurrentAssetCommand(assetId: String) extends AssetmanagementserviceCommand[CurrentAssetReply]
+
+object GetCurrentAssetCommand {
+  implicit val format: Format[GetCurrentAssetCommand] = Json.format
+}
+
+case class CurrentAssetReply(assetImpl: AssetImpl)
+
+object CurrentAssetReply {
+  implicit val format: Format[CurrentAssetReply] = Json.format
+}
+
+
 /**
   * A command to switch the greeting message.
   *
@@ -236,7 +257,10 @@ object AssetmanagementserviceSerializerRegistry extends JsonSerializerRegistry {
     JsonSerializer[GreetingMessageChanged],
     JsonSerializer[AssetmanagementserviceState],
     JsonSerializer[AssetChanged],
-    JsonSerializer[UseAsset]
+    JsonSerializer[UseAsset],
+    JsonSerializer[GetCurrentAssetCommand],
+    JsonSerializer[CurrentAssetReply],
+    JsonSerializer[AssetImpl]
   )
 }
 
