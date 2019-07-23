@@ -12,7 +12,7 @@ val scalaCSV = "com.github.tototoshi" %% "scala-csv" % "1.3.6"
 
 
 lazy val `assetmanagementservice` = (project in file("."))
-  .aggregate(`assetmanagementservice-api`, `assetmanagementservice-impl`, `assetmanagementservice-stream-api`, `assetmanagementservice-stream-impl`)
+  .aggregate(`assetmanagementservice-api`, `assetmanagementservice-impl`)
 
 lazy val `assetmanagementservice-api` = (project in file("assetmanagementservice-api"))
   .settings(
@@ -35,20 +35,3 @@ lazy val `assetmanagementservice-impl` = (project in file("assetmanagementservic
   .settings(lagomForkedTestSettings)
   .dependsOn(`assetmanagementservice-api`)
 
-lazy val `assetmanagementservice-stream-api` = (project in file("assetmanagementservice-stream-api"))
-  .settings(
-    libraryDependencies ++= Seq(
-      lagomScaladslApi
-    )
-  )
-
-lazy val `assetmanagementservice-stream-impl` = (project in file("assetmanagementservice-stream-impl"))
-  .enablePlugins(LagomScala)
-  .settings(
-    libraryDependencies ++= Seq(
-      lagomScaladslTestKit,
-      macwire,
-      scalaTest
-    )
-  )
-  .dependsOn(`assetmanagementservice-stream-api`, `assetmanagementservice-api`)

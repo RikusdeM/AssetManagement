@@ -32,7 +32,7 @@ import scala.collection.immutable.Seq
   * This entity defines one event, the [[GreetingMessageChanged]] event,
   * which is emitted when a [[UseGreetingMessage]] command is received.
   */
-class AssetmanagementserviceEntity extends PersistentEntity {
+class AssetmanagementserviceEntity extends PersistentEntity with AssetConfig {
 
   override type Command = AssetmanagementserviceCommand[_]
   override type Event = AssetmanagementserviceEvent
@@ -70,6 +70,22 @@ class AssetmanagementserviceEntity extends PersistentEntity {
           ctx.reply(Done)
         }
     }
+
+      .onCommand[UseAsset, Done] {
+
+      // Command handler for the UseAsset command
+      case (UseAsset(assetImpl), ctx, state) =>
+        log.info(s"Received Asset command $assetImpl")
+        // In response to this command, we want to first persist it as a
+        // AssetChanged event
+        ctx.thenPersist(
+          AssetChanged(assetImpl)
+        ) { _ =>
+          // Then once the event is successfully persisted, we respond with done.
+          ctx.reply(Done)
+        }
+    }
+
       .onReadOnlyCommand[Hello, String] {
 
       // Command handler for the Hello command
@@ -81,10 +97,10 @@ class AssetmanagementserviceEntity extends PersistentEntity {
     }.onEvent {
 
       // Event handler for the GreetingMessageChanged event
-      case (GreetingMessageChanged(newMessage), state) =>
-        // We simply update the current state to use the greeting message from
+      case (AssetChanged(assetImpl), state) =>
+        // We simply update the current state to use the asset from
         // the event.
-        AssetmanagementserviceState(newMessage, LocalDateTime.now().toString)
+        AssetmanagementserviceState(assetImpl, LocalDateTime.now().toString)
 
     }
   }
@@ -136,7 +152,7 @@ object GreetingMessageChanged {
   implicit val format: Format[GreetingMessageChanged] = Json.format
 }
 
-case class AssetChanged(id: String, name: String, description: String, traceables: Map[String, String]) extends AssetmanagementserviceEvent
+case class AssetChanged(assetImpl: AssetImpl) extends AssetmanagementserviceEvent
 
 object AssetChanged {
   implicit val format: Format[AssetChanged] = Json.format[AssetChanged]
@@ -154,7 +170,7 @@ object AssetImpl {
 sealed trait AssetmanagementserviceCommand[R] extends ReplyType[R]
 
 
-case class UseAsset(name: String, description: String, traceables: Map[String, String]) extends AssetmanagementserviceCommand[Done]
+case class UseAsset(assetImpl: AssetImpl) extends AssetmanagementserviceCommand[Done]
 
 object UseAsset {
   implicit val format: Format[UseAsset] = Json.format
@@ -219,7 +235,8 @@ object AssetmanagementserviceSerializerRegistry extends JsonSerializerRegistry {
     JsonSerializer[Hello],
     JsonSerializer[GreetingMessageChanged],
     JsonSerializer[AssetmanagementserviceState],
-    JsonSerializer[AssetChanged]
+    JsonSerializer[AssetChanged],
+    JsonSerializer[UseAsset]
   )
 }
 

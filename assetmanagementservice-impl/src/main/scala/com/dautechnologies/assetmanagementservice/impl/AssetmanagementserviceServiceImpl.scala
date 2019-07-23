@@ -5,10 +5,11 @@ import java.util.UUID
 import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Flow
 import com.dautechnologies.assetmanagementservice.api
 import com.dautechnologies.assetmanagementservice.api.{Asset, AssetmanagementserviceService}
 import com.lightbend.lagom.scaladsl.api.ServiceCall
-import com.lightbend.lagom.scaladsl.api.broker.Topic
+import com.lightbend.lagom.scaladsl.api.broker._
 import com.lightbend.lagom.scaladsl.broker.TopicProducer
 import com.lightbend.lagom.scaladsl.persistence.cassandra.CassandraSession
 import com.lightbend.lagom.scaladsl.persistence.{EventStreamElement, PersistentEntityRegistry}
@@ -35,12 +36,23 @@ class AssetmanagementserviceServiceImpl(system: ActorSystem,
                                         cassandraSession: CassandraSession,
                                         persistentEntityRegistry: PersistentEntityRegistry,
                                         lifecycle: ApplicationLifecycle,
-                                        steamingAPITopic: Topic[Asset]
+                                        streamingAPITopic: Topic[Asset]
                                        ) extends AssetmanagementserviceService {
 
   import AssetmanagementserviceServiceImpl._
 
-
+  streamingAPITopic.subscribe.withMetadata.atLeastOnce(
+    Flow[Message[Asset]].map { assetMsg =>
+      val ref = persistentEntityRegistry.refFor[AssetmanagementserviceEntity](assetMsg.payload.name)
+      val assetImpl = new AssetImpl(createAssetId(assetMsg.payload.name),
+        assetMsg.payload.name,
+        assetMsg.payload.description,
+        assetMsg.payload.traceables)
+      ref.ask(UseAsset(assetImpl))
+      log.debug("kafka consume asset " + assetMsg.payload)
+      Done
+    }
+  )
 
 
   override def hello(id: String) = ServiceCall { _ =>
@@ -61,7 +73,7 @@ class AssetmanagementserviceServiceImpl(system: ActorSystem,
 
   override def createAsset(): ServiceCall[Asset, Done] = ServiceCall { request =>
     val id = createAssetId(request.name)
-    val pM = new AssetChanged(id, request.name, request.description, request.traceables)
+    val pM = new UseAsset(new AssetImpl(id, request.name, request.description, request.traceables))
     persistentEntityRegistry.refFor[AssetmanagementserviceEntity](id).ask(pM)
     log.debug(s"Asset created : $id")
     Future(Done)
@@ -76,7 +88,7 @@ class AssetmanagementserviceServiceImpl(system: ActorSystem,
 
   private def convertEvent(assetEvent: EventStreamElement[AssetmanagementserviceEvent]): api.AssetChanged = {
     assetEvent.event match {
-      case ac: AssetChanged => api.AssetChanged(ac.id, ac.name, ac.description, ac.traceables)
+      case ac: AssetChanged => api.AssetChanged(ac.assetImpl.id, ac.assetImpl.name, ac.assetImpl.description, ac.assetImpl.traceables)
     }
   }
 }

@@ -30,13 +30,13 @@ trait AssetmanagementserviceService extends Service {
     */
   def useGreeting(id: String): ServiceCall[GreetingMessage, Done]
 
-  def createAsset():ServiceCall[Asset,Done]
+  def createAsset(): ServiceCall[Asset, Done]
 
 
   /**
     * This gets published to Kafka.
     */
-//  def greetingsTopic(): Topic[GreetingMessageChanged]
+  //  def greetingsTopic(): Topic[GreetingMessageChanged]
 
   def assetTopic(): Topic[AssetChanged]
 
@@ -48,10 +48,10 @@ trait AssetmanagementserviceService extends Service {
         pathCall("/api/hello/:id", hello _),
         pathCall("/api/hello/:id", useGreeting _),
 
-        restCall(POST,"assets/create",createAsset _)
+        restCall(POST, "/assets/create", createAsset _)
       )
       .withTopics(
-        topic(AssetmanagementserviceService.TOPIC_NAME, assetTopic() _)
+        topic(AssetmanagementserviceService.TOPIC_NAME, assetTopic _)
           // Kafka partitions messages, messages within the same partition will
           // be delivered in order, to ensure that all messages for the same user
           // go to the same partition (and hence are delivered in order with respect
@@ -68,6 +68,7 @@ trait AssetmanagementserviceService extends Service {
 }
 
 trait command
+
 trait event
 
 case class Asset(name: String, description: String, traceables: Map[String, String]) extends command
@@ -77,18 +78,18 @@ object Asset {
 }
 
 
-
 /**
   * Message(Event) used by topic stream
+  *
   * @param id
   * @param name
   * @param description
   * @param traceables
   */
-case class AssetChanged(id:String,name:String,description:String, traceables:Map[String,String]) extends event
+case class AssetChanged(id: String, name: String, description: String, traceables: Map[String, String]) extends event
 
-object AssetChanged{
-  implicit val format:Format[AssetChanged] = Json.format[AssetChanged]
+object AssetChanged {
+  implicit val format: Format[AssetChanged] = Json.format[AssetChanged]
 }
 
 /**

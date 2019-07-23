@@ -6,10 +6,15 @@ import com.lightbend.lagom.scaladsl.persistence.cassandra.CassandraPersistenceCo
 import com.lightbend.lagom.scaladsl.server._
 import com.lightbend.lagom.scaladsl.devmode.LagomDevModeComponents
 import play.api.libs.ws.ahc.AhcWSComponents
-import com.dautechnologies.assetmanagementservice.api.AssetmanagementserviceService
+import com.dautechnologies.assetmanagementservice.api.{Asset, AssetmanagementserviceService, AssetmanagementserviceStreamService}
+import com.lightbend.lagom.scaladsl.api.broker.Topic
 import com.lightbend.lagom.scaladsl.broker.kafka.LagomKafkaComponents
 import com.lightbend.lagom.scaladsl.playjson.JsonSerializerRegistry
+
 import com.softwaremill.macwire._
+import play.api.Environment
+
+import scala.concurrent.ExecutionContext
 
 class AssetmanagementserviceLoader extends LagomApplicationLoader {
 
@@ -24,18 +29,29 @@ class AssetmanagementserviceLoader extends LagomApplicationLoader {
   override def describeService = Some(readDescriptor[AssetmanagementserviceService])
 }
 
-abstract class AssetmanagementserviceApplication(context: LagomApplicationContext)
-  extends LagomApplication(context)
-    with CassandraPersistenceComponents
-    with LagomKafkaComponents
-    with AhcWSComponents {
+trait AssetmanagementserviceComponents extends LagomServerComponents with CassandraPersistenceComponents
+  with LagomKafkaComponents
+  with AhcWSComponents {
 
-  // Bind the service that this server provides
-  override lazy val lagomServer: LagomServer = serverFor[AssetmanagementserviceService](wire[AssetmanagementserviceServiceImpl])
+  implicit def executionContext: ExecutionContext
+
+  def environment: Environment
 
   // Register the JSON serializer registry
   override lazy val jsonSerializerRegistry: JsonSerializerRegistry = AssetmanagementserviceSerializerRegistry
 
   // Register the AssetManagementService persistent entity
   persistentEntityRegistry.register(wire[AssetmanagementserviceEntity])
+
+  //todo: Readside
+}
+
+abstract class AssetmanagementserviceApplication(context: LagomApplicationContext)
+  extends LagomApplication(context) with AssetmanagementserviceComponents {
+
+  lazy val streamService:AssetmanagementserviceStreamService = serviceClient.implement[AssetmanagementserviceStreamService]
+  lazy val topic:Topic[Asset] = streamService.assetmanagementserviceStreamTopic()
+
+  // Bind the service that this server provides
+  override lazy val lagomServer: LagomServer = serverFor[AssetmanagementserviceService](wire[AssetmanagementserviceServiceImpl])
 }
