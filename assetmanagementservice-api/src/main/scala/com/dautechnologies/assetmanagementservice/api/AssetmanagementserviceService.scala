@@ -19,17 +19,6 @@ object AssetmanagementserviceService {
   */
 trait AssetmanagementserviceService extends Service {
 
-  /**
-    * Example: curl http://localhost:9000/api/hello/Alice
-    */
-  def hello(id: String): ServiceCall[NotUsed, String]
-
-  /**
-    * Example: curl -H "Content-Type: application/json" -X POST -d '{"message":
-    * "Hi"}' http://localhost:9000/api/hello/Alice
-    */
-  def useGreeting(id: String): ServiceCall[GreetingMessage, Done]
-
   def createAsset(): ServiceCall[Asset, Done]
 
   def queryAssetEntityState(assetId: String): ServiceCall[NotUsed, AssetEntityStateResponse]
@@ -47,10 +36,9 @@ trait AssetmanagementserviceService extends Service {
     // @formatter:off
     named("assetmanagementservice")
       .withCalls(
-        pathCall("/api/hello/:id", hello _),
-        pathCall("/api/hello/:id", useGreeting _),
 
         restCall(POST, "/assets/create", createAsset _),
+
         restCall(GET, "/assets/get/:id", queryAssetEntityState _)
       )
       .withTopics(
@@ -99,34 +87,4 @@ case class AssetChanged(id: String, name: String, description: String, traceable
 
 object AssetChanged {
   implicit val format: Format[AssetChanged] = Json.format[AssetChanged]
-}
-
-/**
-  * The greeting message class.
-  */
-case class GreetingMessage(message: String)
-
-object GreetingMessage {
-  /**
-    * Format for converting greeting messages to and from JSON.
-    *
-    * This will be picked up by a Lagom implicit conversion from Play's JSON format to Lagom's message serializer.
-    */
-  implicit val format: Format[GreetingMessage] = Json.format[GreetingMessage]
-}
-
-
-/**
-  * The greeting message class used by the topic stream.
-  * Different than [[GreetingMessage]], this message includes the name (id).
-  */
-case class GreetingMessageChanged(name: String, message: String)
-
-object GreetingMessageChanged {
-  /**
-    * Format for converting greeting messages to and from JSON.
-    *
-    * This will be picked up by a Lagom implicit conversion from Play's JSON format to Lagom's message serializer.
-    */
-  implicit val format: Format[GreetingMessageChanged] = Json.format[GreetingMessageChanged]
 }

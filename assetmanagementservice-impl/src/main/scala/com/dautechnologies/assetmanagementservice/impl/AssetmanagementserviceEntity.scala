@@ -13,25 +13,6 @@ import AssetmanagementserviceServiceImpl.createAssetId
 
 import scala.collection.immutable.Seq
 
-/**
-  * This is an event sourced entity. It has a state, [[AssetmanagementserviceState]], which
-  * stores what the greeting should be (eg, "Hello").
-  *
-  * Event sourced entities are interacted with by sending them commands. This
-  * entity supports two commands, a [[UseGreetingMessage]] command, which is
-  * used to change the greeting, and a [[Hello]] command, which is a read
-  * only command which returns a greeting to the name specified by the command.
-  *
-  * Commands get translated to events, and it's the events that get persisted by
-  * the entity. Each event will have an event handler registered for it, and an
-  * event handler simply applies an event to the current state. This will be done
-  * when the event is first created, and it will also be done when the entity is
-  * loaded from the database - each event will be replayed to recreate the state
-  * of the entity.
-  *
-  * This entity defines one event, the [[GreetingMessageChanged]] event,
-  * which is emitted when a [[UseGreetingMessage]] command is received.
-  */
 class AssetmanagementserviceEntity extends PersistentEntity with AssetConfig {
 
   override type Command = AssetmanagementserviceCommand[_]
@@ -57,20 +38,6 @@ class AssetmanagementserviceEntity extends PersistentEntity with AssetConfig {
   override def behavior: Behavior = {
     case AssetmanagementserviceState(message, _) => Actions()
 
-      .onCommand[UseGreetingMessage, Done] {
-
-      // Command handler for the UseGreetingMessage command
-      case (UseGreetingMessage(newMessage), ctx, state) =>
-        // In response to this command, we want to first persist it as a
-        // GreetingMessageChanged event
-        ctx.thenPersist(
-          GreetingMessageChanged(newMessage)
-        ) { _ =>
-          // Then once the event is successfully persisted, we respond with done.
-          ctx.reply(Done)
-        }
-    }
-
       .onCommand[UseAsset, Done] {
 
       // Command handler for the UseAsset command
@@ -84,15 +51,6 @@ class AssetmanagementserviceEntity extends PersistentEntity with AssetConfig {
           // Then once the event is successfully persisted, we respond with done.
           ctx.reply(Done)
         }
-    }
-
-      .onReadOnlyCommand[Hello, String] {
-
-      // Command handler for the Hello command
-      case (Hello(name), ctx, state) =>
-        // Reply with a message built from the current message, and the name of
-        // the person we're meant to say hello to.
-        ctx.reply(s"$message, $name!")
     }
 
       .onReadOnlyCommand[GetCurrentAssetCommand, CurrentAssetReply] {
@@ -144,22 +102,6 @@ object AssetmanagementserviceEvent {
   val Tag: AggregateEventTag[AssetmanagementserviceEvent] = AggregateEventTag[AssetmanagementserviceEvent]
 }
 
-/**
-  * An event that represents a change in greeting message.
-  */
-case class GreetingMessageChanged(message: String) extends AssetmanagementserviceEvent
-
-object GreetingMessageChanged {
-
-  /**
-    * Format for the greeting message changed event.
-    *
-    * Events get stored and loaded from the database, hence a JSON format
-    * needs to be declared so that they can be serialized and deserialized.
-    */
-  implicit val format: Format[GreetingMessageChanged] = Json.format
-}
-
 case class AssetChanged(assetImpl: AssetImpl) extends AssetmanagementserviceEvent
 
 object AssetChanged {
@@ -196,51 +138,6 @@ object CurrentAssetReply {
   implicit val format: Format[CurrentAssetReply] = Json.format
 }
 
-
-/**
-  * A command to switch the greeting message.
-  *
-  * It has a reply type of [[Done]], which is sent back to the caller
-  * when all the events emitted by this command are successfully persisted.
-  */
-case class UseGreetingMessage(message: String) extends AssetmanagementserviceCommand[Done]
-
-object UseGreetingMessage {
-
-  /**
-    * Format for the use greeting message command.
-    *
-    * Persistent entities get sharded across the cluster. This means commands
-    * may be sent over the network to the node where the entity lives if the
-    * entity is not on the same node that the command was issued from. To do
-    * that, a JSON format needs to be declared so the command can be serialized
-    * and deserialized.
-    */
-  implicit val format: Format[UseGreetingMessage] = Json.format
-}
-
-/**
-  * A command to say hello to someone using the current greeting message.
-  *
-  * The reply type is String, and will contain the message to say to that
-  * person.
-  */
-case class Hello(name: String) extends AssetmanagementserviceCommand[String]
-
-object Hello {
-
-  /**
-    * Format for the hello command.
-    *
-    * Persistent entities get sharded across the cluster. This means commands
-    * may be sent over the network to the node where the entity lives if the
-    * entity is not on the same node that the command was issued from. To do
-    * that, a JSON format needs to be declared so the command can be serialized
-    * and deserialized.
-    */
-  implicit val format: Format[Hello] = Json.format
-}
-
 /**
   * Akka serialization, used by both persistence and remoting, needs to have
   * serializers registered for every type serialized or deserialized. While it's
@@ -252,9 +149,6 @@ object Hello {
   */
 object AssetmanagementserviceSerializerRegistry extends JsonSerializerRegistry {
   override def serializers: Seq[JsonSerializer[_]] = Seq(
-    JsonSerializer[UseGreetingMessage],
-    JsonSerializer[Hello],
-    JsonSerializer[GreetingMessageChanged],
     JsonSerializer[AssetmanagementserviceState],
     JsonSerializer[AssetChanged],
     JsonSerializer[UseAsset],

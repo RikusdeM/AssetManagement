@@ -54,23 +54,6 @@ class AssetmanagementserviceServiceImpl(system: ActorSystem,
     }
   )
 
-
-  override def hello(id: String) = ServiceCall { _ =>
-    // Look up the AssetManagementService entity for the given ID.
-    val ref = persistentEntityRegistry.refFor[AssetmanagementserviceEntity](id)
-
-    // Ask the entity the Hello command.
-    ref.ask(Hello(id))
-  }
-
-  override def useGreeting(id: String) = ServiceCall { request =>
-    // Look up the AssetManagementService entity for the given ID.
-    val ref = persistentEntityRegistry.refFor[AssetmanagementserviceEntity](id)
-
-    // Tell the entity to use the greeting message specified.
-    ref.ask(UseGreetingMessage(request.message))
-  }
-
   override def createAsset(): ServiceCall[Asset, Done] = ServiceCall { request =>
     val id = createAssetId(request.name)
     val pM = new UseAsset(new AssetImpl(id, request.name, request.description, request.traceables))
